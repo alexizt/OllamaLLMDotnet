@@ -50,7 +50,7 @@ class Program
 
         foreach (var chunk in chunks)
         {
-            var prompt = $"Resume el siguiente fragmento:\n{chunk}";
+            var prompt = $"Summarize the following passage:\n{chunk}";
             var responseText = await SendPromptAsync(apiUrl, model, prompt);
             if (responseText == null)
             {
@@ -60,7 +60,7 @@ class Program
             summaries.Add(responseText.Trim());
         }
 
-        var finalPrompt = $"Combina y resume las siguientes notas en un solo resumen claro y conciso:\n{string.Join("\n\n", summaries)}";
+        var finalPrompt = $"Combine and summarize the following notes into a single clear and concise summary in Italian.:\n{string.Join("\n\n", summaries)}";
         var finalSummary = await SendPromptAsync(apiUrl, model, finalPrompt);
         if (finalSummary == null)
         {
@@ -68,7 +68,7 @@ class Program
             return 5;
         }
 
-        Console.WriteLine("Resumen final:");
+        Console.WriteLine("Final summary:");
         Console.WriteLine(finalSummary.Trim());
         return 0;
     }
