@@ -1,6 +1,3 @@
-#:package UglyToad.PdfPig@1.7.0-custom-5
-#:package System.Text.Json@10.0.1
-
 using System;
 using System.IO;
 using System.Net.Http;
@@ -87,6 +84,8 @@ class Program
                 writer.WriteStartObject();
                 writer.WriteString("model", model);
                 writer.WriteString("prompt", prompt);
+                // Request a non-streamed (single) response when supported by the server
+                writer.WriteBoolean("stream", false);
                 writer.WriteEndObject();
                 writer.Flush();
             }
