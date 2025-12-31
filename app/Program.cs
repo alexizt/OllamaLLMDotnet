@@ -17,8 +17,8 @@ class Program
 
     static async Task<int> Main(string[] args)
     {
-        // If the user asked for help, show usage and exit BEFORE validating files
-        if (args.Contains("--help") || args.Contains("-h"))
+        // If the user asked for help or passed no arguments, show usage and exit BEFORE validating files
+        if (args.Length == 0 || args.Contains("--help") || args.Contains("-h"))
         {
             Console.WriteLine("Usage: dotnet run --project app -- <file> <model> [apiUrl] [options]");
             Console.WriteLine();
