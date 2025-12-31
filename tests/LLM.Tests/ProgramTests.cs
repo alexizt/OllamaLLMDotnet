@@ -39,6 +39,7 @@ public class ProgramTests
         Assert.Equal("S", obj.Summary);
         Assert.Equal("en", obj.Language);
         Assert.Equal(10, obj.Word_Count);
+        Assert.NotNull(obj.Key_Points);
         Assert.Single(obj.Key_Points);
     }
 
