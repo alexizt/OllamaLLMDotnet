@@ -9,6 +9,7 @@ using UglyToad.PdfPig; // para PDF
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Linq;
+using System.Diagnostics;
 
 public class Program
 {
@@ -99,6 +100,9 @@ public class Program
 
         var chunks = SplitIntoChunks(pdfText, 3000);
         var summaries = new List<string>();
+
+        // Measure total processing time (including chunk requests and final summary)
+        var sw = Stopwatch.StartNew();
 
         foreach (var chunk in chunks)
         {
@@ -245,6 +249,9 @@ public class Program
             }
         }
 
+        sw.Stop();
+        Console.WriteLine($"Total elapsed time: {sw.Elapsed.TotalSeconds:F2} s");
+
         return 0;
     }
 
@@ -269,17 +276,62 @@ public class Program
 
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
         HttpResponseMessage response;
+
+        // Start a simple console spinner to show progress while waiting for the response
+        using var spinnerCts = new CancellationTokenSource();
+        var spinnerTask = Task.Run(async () =>
+        {
+            var frames = new[] { '|', '/', '-', '\\' };
+            int idx = 0;
+            try
+            {
+                while (!spinnerCts.Token.IsCancellationRequested)
+                {
+                    Console.Write($"\rWaiting for model... {frames[idx++ % frames.Length]}");
+                    await Task.Delay(150, spinnerCts.Token);
+                }
+            }
+            catch (TaskCanceledException) { }
+            finally
+            {
+                // Clear the spinner line
+                try
+                {
+                    Console.Write('\r');
+                    Console.Write(new string(' ', Math.Max(0, Console.WindowWidth - 1)));
+                    Console.Write('\r');
+                }
+                catch
+                {
+                    // ignore when console size not available
+                }
+            }
+        });
+
         try
         {
             response = await httpClient.PostAsync(apiUrl, content);
         }
         catch (Exception ex)
         {
+            spinnerCts.Cancel();
+            await spinnerTask;
             Console.Error.WriteLine($"HTTP request failed: {ex.Message}");
             return null;
         }
 
-        var responseText = await response.Content.ReadAsStringAsync();
+        string responseText;
+        try
+        {
+            responseText = await response.Content.ReadAsStringAsync();
+        }
+        finally
+        {
+            // stop spinner as soon as content is read
+            spinnerCts.Cancel();
+            await spinnerTask;
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             Console.Error.WriteLine($"API responded with {response.StatusCode}: {responseText}");
