@@ -1,3 +1,6 @@
+#:package UglyToad.PdfPig@1.7.0-custom-5
+#:package System.Text.Json@10.0.1
+
 using System;
 using System.IO;
 using System.Net.Http;
@@ -6,6 +9,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using UglyToad.PdfPig; // para PDF
+//using DocumentFormat.OpenXml.Packaging; // para DOCX
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
@@ -50,7 +54,7 @@ class Program
 
         foreach (var chunk in chunks)
         {
-            var prompt = $"Summarize the following passage:\n{chunk}";
+            var prompt = $"Resume el siguiente fragmento:\n{chunk}";
             var responseText = await SendPromptAsync(apiUrl, model, prompt);
             if (responseText == null)
             {
@@ -62,10 +66,10 @@ class Program
 
         bool structured = args.Contains("--structured") || args.Contains("-s");
 
-        var finalPrompt = $"Combine and summarize the following notes into a single clear and concise summary in Italian.:\n{string.Join("\n\n", summaries)}";
+        var finalPrompt = $"Combina y resume las siguientes notas en un solo resumen claro y conciso:\n{string.Join("\n\n", summaries)}";
         if (structured)
         {
-            finalPrompt += "\nRespond only with a JSON file with the following structure: {\"title\":\"\", \"summary\":\"\", \"key_points\": [\"\"], \"language\": \"it\", \"word_count\": 0}. Do not include additional text.";
+            finalPrompt += "\nResponde únicamente con un JSON con la siguiente estructura: {\"title\":\"\", \"summary\":\"\", \"key_points\": [\"\"], \"language\": \"es\", \"word_count\": 0}. No incluyas texto adicional.";
         }
 
         var finalSummary = await SendPromptAsync(apiUrl, model, finalPrompt);
@@ -77,11 +81,13 @@ class Program
 
         if (structured)
         {
+            // Try to extract JSON and parse into structured object
             var json = ExtractJsonFromText(finalSummary);
             var structuredObj = ParseStructuredSummary(json);
             if (structuredObj == null)
             {
-                var conversionPrompt = "Extract and return only valid JSON with the following structure: {\"title\":\"\",\"summary\":\"\",\"key_points\":[\"\"],\"language\":\"es\",\"word_count\":0} a partir del texto siguiente. Responde SOLO con el JSON (sin explicación adicional):\n\n" + finalSummary;
+                // Retry: ask the model to convert/return only the JSON with the required schema
+                var conversionPrompt = "Extrae y devuelve únicamente un JSON válido con la siguiente estructura: {\"title\":\"\",\"summary\":\"\",\"key_points\":[\"\"],\"language\":\"es\",\"word_count\":0} a partir del texto siguiente. Responde SOLO con el JSON (sin explicación adicional):\n\n" + finalSummary;
                 var conversion = await SendPromptAsync(apiUrl, model, conversionPrompt);
                 if (!string.IsNullOrEmpty(conversion))
                 {
@@ -92,7 +98,7 @@ class Program
 
             if (structuredObj != null)
             {
-                Console.WriteLine("Structured summary:");
+                Console.WriteLine("Resumen estructurado:");
                 var opts = new JsonSerializerOptions { WriteIndented = true };
                 Console.WriteLine(JsonSerializer.Serialize(structuredObj, opts));
             }
@@ -104,7 +110,7 @@ class Program
         }
         else
         {
-            Console.WriteLine("Final summary:");
+            Console.WriteLine("Resumen final:");
             Console.WriteLine(finalSummary.Trim());
         }
 
@@ -122,8 +128,6 @@ class Program
                 writer.WriteStartObject();
                 writer.WriteString("model", model);
                 writer.WriteString("prompt", prompt);
-                // Request a non-streamed (single) response when supported by the server
-                writer.WriteBoolean("stream", false);
                 writer.WriteEndObject();
                 writer.Flush();
             }
