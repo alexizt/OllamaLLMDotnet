@@ -8,8 +8,7 @@ using System.Collections.Generic;
 using UglyToad.PdfPig; // para PDF
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-
-
+using System.Linq;
 
 class Program
 {
@@ -18,10 +17,63 @@ class Program
 
     static async Task<int> Main(string[] args)
     {
-        string filePath = args.Length > 0 ? args[0] : "ejemplo.pdf";
-        string model = args.Length > 1 ? args[1] : "llama2";
-        // If a third positional arg is provided and it is not a flag (does not start with '-'), treat it as apiUrl
-        string apiUrl = (args.Length > 2 && !args[2].StartsWith("-")) ? args[2] : "http://localhost:11434/api/generate";
+        // If the user asked for help, show usage and exit BEFORE validating files
+        if (args.Contains("--help") || args.Contains("-h"))
+        {
+            Console.WriteLine("Usage: dotnet run --project app -- <file> <model> [apiUrl] [options]");
+            Console.WriteLine();
+            Console.WriteLine("Positional args:");
+            Console.WriteLine("  <file>    Path to the PDF to summarize (default: ejemplo.pdf)");
+            Console.WriteLine("  <model>   Ollama model name to use (default: llama2)");
+            Console.WriteLine("  [apiUrl]  Optional Ollama API URL (default: http://localhost:11434/api/generate)");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --structured, -s       Return a structured JSON with fields title, summary, key_points, language, word_count");
+            Console.WriteLine("  --lang, -l <code>      Language code for JSON values (default: en)");
+            Console.WriteLine("  --output, -o <path>    Write output to the specified file (JSON or plain text)");
+            Console.WriteLine("  --help, -h             Show this help message and exit");
+            return 0;
+        }
+
+        // Build positional arguments while consuming flag values (so values like the language code aren't treated as positional)
+        var consumed = new bool[args.Length];
+        for (int i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a == "--lang" || a == "-l" || a == "--output" || a == "-o")
+            {
+                consumed[i] = true;
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                {
+                    consumed[i + 1] = true;
+                    i++;
+                }
+                continue;
+            }
+
+            if (a.StartsWith("--lang=") || a.StartsWith("-l=") || a.StartsWith("--output=") || a.StartsWith("-o="))
+            {
+                consumed[i] = true;
+                continue;
+            }
+
+            if (a.StartsWith("-"))
+            {
+                // other flags without args (e.g., --structured, --help)
+                consumed[i] = true;
+                continue;
+            }
+        }
+
+        var posArgs = new List<string>();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (!consumed[i]) posArgs.Add(args[i]);
+        }
+
+        string filePath = posArgs.Count > 0 ? posArgs[0] : "ejemplo.pdf";
+        string model = posArgs.Count > 1 ? posArgs[1] : "llama2";
+        string apiUrl = posArgs.Count > 2 ? posArgs[2] : "http://localhost:11434/api/generate";
 
         if (!File.Exists(filePath))
         {
@@ -62,10 +114,62 @@ class Program
 
         bool structured = args.Contains("--structured") || args.Contains("-s");
 
-        var finalPrompt = $"Combine and summarize the following notes into a single clear and concise summary in Italian.:\n{string.Join("\n\n", summaries)}";
+        // Language for the JSON *values* (not property names). Default: English (en)
+        string lang = "en";
+        string? outputFile = null;
+        bool helpRequested = args.Contains("--help") || args.Contains("-h");
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--lang" || args[i] == "-l")
+            {
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                    lang = args[i + 1].ToLowerInvariant();
+            }
+            else if (args[i].StartsWith("--lang="))
+            {
+                lang = args[i].Substring("--lang=".Length).ToLowerInvariant();
+            }
+            else if (args[i].StartsWith("-l="))
+            {
+                lang = args[i].Substring("-l=".Length).ToLowerInvariant();
+            }
+            else if (args[i] == "--output" || args[i] == "-o")
+            {
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                    outputFile = args[i + 1];
+            }
+            else if (args[i].StartsWith("--output="))
+            {
+                outputFile = args[i].Substring("--output=".Length);
+            }
+            else if (args[i].StartsWith("-o="))
+            {
+                outputFile = args[i].Substring("-o=".Length);
+            }
+        }
+
+        if (helpRequested)
+        {
+            Console.WriteLine("Usage: dotnet run --project app -- <file> <model> [apiUrl] [options]");
+            Console.WriteLine();
+            Console.WriteLine("Positional args:");
+            Console.WriteLine("  <file>    Path to the PDF to summarize (default: ejemplo.pdf)");
+            Console.WriteLine("  <model>   Ollama model name to use (default: llama2)");
+            Console.WriteLine("  [apiUrl]  Optional Ollama API URL (default: http://localhost:11434/api/generate)");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine("  --structured, -s       Return a structured JSON with fields title, summary, key_points, language, word_count");
+            Console.WriteLine("  --lang, -l <code>      Language code for JSON values (default: en)");
+            Console.WriteLine("  --output, -o <path>    Write output to the specified file (JSON or plain text)");
+            Console.WriteLine("  --help, -h             Show this help message and exit");
+            return 0;
+        }
+
+        var finalPrompt = $"Combine and summarize the following notes into a single clear and concise summary. The language for the summary content should be '{lang}'.\n{string.Join("\n\n", summaries)}";
         if (structured)
         {
-            finalPrompt += "\nRespond only with a JSON file with the following structure: {\"title\":\"\", \"summary\":\"\", \"key_points\": [\"\"], \"language\": \"it\", \"word_count\": 0}. Do not include additional text.";
+            finalPrompt += $"\nRespond only with a JSON with the following structure: {{\"title\":\"\", \"summary\":\"\", \"key_points\": [\"\"], \"language\": \"{lang}\", \"word_count\": 0}}. The JSON values (title/summary/key_points) must be in '{lang}'. Do not include additional text.";
         }
 
         var finalSummary = await SendPromptAsync(apiUrl, model, finalPrompt);
@@ -81,7 +185,7 @@ class Program
             var structuredObj = ParseStructuredSummary(json);
             if (structuredObj == null)
             {
-                var conversionPrompt = "Extract and return only valid JSON with the following structure: {\"title\":\"\",\"summary\":\"\",\"key_points\":[\"\"],\"language\":\"es\",\"word_count\":0} a partir del texto siguiente. Responde SOLO con el JSON (sin explicación adicional):\n\n" + finalSummary;
+                var conversionPrompt = $"Extrae y devuelve únicamente un JSON válido con la siguiente estructura: {{\"title\":\"\",\"summary\":\"\",\"key_points\":[\"\"],\"language\":\"{lang}\",\"word_count\":0}} a partir del texto siguiente. Responde SOLO con el JSON (sin explicación adicional):\n\n" + finalSummary;
                 var conversion = await SendPromptAsync(apiUrl, model, conversionPrompt);
                 if (!string.IsNullOrEmpty(conversion))
                 {
@@ -92,9 +196,29 @@ class Program
 
             if (structuredObj != null)
             {
+                // If the model didn't set the language field, assume the requested language
+                if (string.IsNullOrWhiteSpace(structuredObj.Language))
+                    structuredObj.Language = lang;
+                else if (!string.Equals(structuredObj.Language, lang, StringComparison.OrdinalIgnoreCase))
+                    Console.Error.WriteLine($"Warning: model returned Language='{structuredObj.Language}', expected '{lang}'.");
+
                 Console.WriteLine("Structured summary:");
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                Console.WriteLine(JsonSerializer.Serialize(structuredObj, opts));
+                var serialized = JsonSerializer.Serialize(structuredObj, opts);
+                Console.WriteLine(serialized);
+
+                if (!string.IsNullOrEmpty(outputFile))
+                {
+                    try
+                    {
+                        File.WriteAllText(outputFile, serialized, Encoding.UTF8);
+                        Console.WriteLine($"Saved structured JSON to: {outputFile}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"Failed to write output file '{outputFile}': {ex.Message}");
+                    }
+                }
             }
             else
             {
@@ -106,6 +230,19 @@ class Program
         {
             Console.WriteLine("Final summary:");
             Console.WriteLine(finalSummary.Trim());
+
+            if (!string.IsNullOrEmpty(outputFile))
+            {
+                try
+                {
+                    File.WriteAllText(outputFile, finalSummary.Trim(), Encoding.UTF8);
+                    Console.WriteLine($"Saved summary to: {outputFile}");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Failed to write output file '{outputFile}': {ex.Message}");
+                }
+            }
         }
 
         return 0;
