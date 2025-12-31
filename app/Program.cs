@@ -10,7 +10,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Linq;
 
-class Program
+public class Program
 {
     private static readonly HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
     
@@ -349,7 +349,7 @@ class Program
         return sb.ToString();
     }
 
-    static List<string> SplitIntoChunks(string text, int maxChars)
+    public static List<string> SplitIntoChunks(string text, int maxChars)
     {
         var chunks = new List<string>();
         int pos = 0;
@@ -368,7 +368,7 @@ class Program
         return chunks;
     }
 
-    static string ExtractJsonFromText(string text)
+    public static string ExtractJsonFromText(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
         int start = text.IndexOf('{');
@@ -384,7 +384,7 @@ class Program
         return text;
     }
 
-    static StructuredSummary? ParseStructuredSummary(string json)
+    public static StructuredSummary? ParseStructuredSummary(string json)
     {
         try
         {
