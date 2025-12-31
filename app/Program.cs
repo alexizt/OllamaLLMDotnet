@@ -25,7 +25,7 @@ public class Program
             Console.WriteLine();
             Console.WriteLine("Positional args:");
             Console.WriteLine("  <file>    Path to the PDF to summarize (default: ejemplo.pdf)");
-            Console.WriteLine("  <model>   Ollama model name to use (default: llama2)");
+            Console.WriteLine("  <model>   Ollama model name to use (default: llama3.1)");
             Console.WriteLine("  [apiUrl]  Optional Ollama API URL (default: http://localhost:11434/api/generate)");
             Console.WriteLine();
             Console.WriteLine("Options:");
@@ -73,7 +73,7 @@ public class Program
         }
 
         string filePath = posArgs.Count > 0 ? posArgs[0] : "ejemplo.pdf";
-        string model = posArgs.Count > 1 ? posArgs[1] : "llama2";
+        string model = posArgs.Count > 1 ? posArgs[1] : "llama3.1";
         string apiUrl = posArgs.Count > 2 ? posArgs[2] : "http://localhost:11434/api/generate";
 
         if (!File.Exists(filePath))
@@ -159,7 +159,7 @@ public class Program
             Console.WriteLine();
             Console.WriteLine("Positional args:");
             Console.WriteLine("  <file>    Path to the PDF to summarize (default: ejemplo.pdf)");
-            Console.WriteLine("  <model>   Ollama model name to use (default: llama2)");
+            Console.WriteLine("  <model>   Ollama model name to use (default: llama3.1)");
             Console.WriteLine("  [apiUrl]  Optional Ollama API URL (default: http://localhost:11434/api/generate)");
             Console.WriteLine();
             Console.WriteLine("Options:");
@@ -189,7 +189,7 @@ public class Program
             var structuredObj = ParseStructuredSummary(json);
             if (structuredObj == null)
             {
-                var conversionPrompt = $"Extrae y devuelve únicamente un JSON válido con la siguiente estructura: {{\"title\":\"\",\"summary\":\"\",\"key_points\":[\"\"],\"language\":\"{lang}\",\"word_count\":0}} a partir del texto siguiente. Responde SOLO con el JSON (sin explicación adicional):\n\n" + finalSummary;
+                var conversionPrompt = $"Extract and return only valid JSON with the following structure: {{\"title\":\"\",\"summary\":\"\",\"key_points\":[\"\"],\"language\":\"{lang}\",\"word_count\":0}} based on the following text. Respond ONLY with the JSON (no further explanation):\n\n" + finalSummary;
                 var conversion = await SendPromptAsync(apiUrl, model, conversionPrompt);
                 if (!string.IsNullOrEmpty(conversion))
                 {
