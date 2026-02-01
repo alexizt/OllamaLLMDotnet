@@ -2,7 +2,7 @@
   "profiles": {
     "app": {
       "commandName": "Project",
-      "commandLineArgs": "ejemplo.pdf llama3.1 --structured --lang es"
+      "commandLineArgs": "ejemplo3.pdf llama3.1 --structured --lang es"
     }
   }
 }
