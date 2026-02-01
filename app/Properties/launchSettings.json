@@ -2,7 +2,7 @@
   "profiles": {
     "app": {
       "commandName": "Project",
-      "commandLineArgs": "ejemplo3.pdf llama3.1 --structured --lang es"
+      "commandLineArgs": "ejemplo.pdf qwen3-coder:30b --structured --lang es"
     }
   }
 }
